@@ -36,7 +36,7 @@ namespace TranslageOnGPU
 
             string fragmentShader = "";
 
-            using (StreamReader sr = new StreamReader(new FileStream(@"C:\Users\Admin\source\repos\TranslageOnGPU\TranslageOnGPU\shader.frag", FileMode.Open)))
+            using (StreamReader sr = new StreamReader(new FileStream(@"..\..\shader.frag", FileMode.Open)))
             {
                 fragmentShader = sr.ReadToEnd();
             }
@@ -72,6 +72,39 @@ namespace TranslageOnGPU
             Console.WriteLine(GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer));
 
             _wordsTex = InitializeWordsTexture();
+            InitializeTextUniform();
+        }
+
+        private void InitializeTextUniform()
+        {
+            int[][] text = new int[4][];
+            text[0] = new int[] { 4 }; //_ -> a
+            text[1] = new int[] { '6', '6' }; //a_ -> at
+            text[2] = new int[] { 1, 2 }; //__ -> no
+            text[3] = new int[] { 4, 3, 2, 1, 0 }; //a_o__ -> amore
+
+            GL.UseProgram(_shaderProgram);
+            for(int i = 0; i < text.Length; i++)
+            {
+                int[] word = new int[6];
+                for(int k = 0; k < word.Length; k++)
+                {
+                    if(k < text[i].Length)
+                    {
+                        word[k] = text[i][k];
+                    }
+                    else
+                    {
+                        word[k] = 0;
+                    }
+                }
+                var loc = GL.GetUniformLocation(_shaderProgram, "word" + i);
+                if(loc != -1)
+                {
+                    GL.Uniform1(loc, word.Length, word);
+                }
+            }
+            GL.UseProgram(0);
         }
 
         private int InitializeWordsTexture()
