@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{63BDB58C-A66C-46F6-986F-DE47443E3C19}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>TranslageOnGPU</RootNamespace>
-    <AssemblyName>TranslageOnGPU</AssemblyName>
+    <RootNamespace>TranslateOnGPU</RootNamespace>
+    <AssemblyName>TranslateOnGPU</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
