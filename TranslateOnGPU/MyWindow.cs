@@ -20,6 +20,16 @@ namespace TranslageOnGPU
         [FieldOffset(3)] public byte Byte3;
     }
 
+    [StructLayout(LayoutKind.Explicit)]
+    struct IntToByte
+    {
+        [FieldOffset(0)] public int Int;
+        [FieldOffset(0)] public byte Byte0;
+        [FieldOffset(1)] public byte Byte1;
+        [FieldOffset(2)] public byte Byte2;
+        [FieldOffset(3)] public byte Byte3;
+    }
+
     class MyWindow : GameWindow
     {
         private static int WindowWidth = 500;
@@ -28,11 +38,13 @@ namespace TranslageOnGPU
         private readonly int _fbo;
         private readonly int _texOne;
         private readonly int _texTwo;
+        private readonly int _texThree;
         private readonly int _wordsTex;
 
         public MyWindow() : base(WindowWidth, WindowHeight)
         {
             GL.ClearColor(Color.Blue);
+            
 
             string fragmentShader = "";
 
@@ -41,45 +53,60 @@ namespace TranslageOnGPU
                 fragmentShader = sr.ReadToEnd();
             }
 
-            var a = GL.GetInteger(GetPName.MaxUniformBlockSize);
-            a = GL.GetInteger(GetPName.MaxFragmentUniformBlocks);
-
-
             var fragmentHandle = CreateShader(ShaderType.FragmentShader, fragmentShader);
 
             _shaderProgram = GL.CreateProgram();
+            Console.WriteLine(GL.GetProgramInfoLog(_shaderProgram));
             Console.WriteLine(GL.GetError());
 
             GL.AttachShader(_shaderProgram, fragmentHandle);
+            Console.WriteLine(GL.GetProgramInfoLog(_shaderProgram));
             Console.WriteLine(GL.GetError());
 
             GL.LinkProgram(_shaderProgram);
+            Console.WriteLine(GL.GetProgramInfoLog(_shaderProgram));
             Console.WriteLine(GL.GetError());
 
             GL.DetachShader(_shaderProgram, fragmentHandle);
+            Console.WriteLine(GL.GetProgramInfoLog(_shaderProgram));
             Console.WriteLine(GL.GetError());
 
+            GL.ValidateProgram(_shaderProgram);
+            Console.WriteLine(GL.GetProgramInfoLog(_shaderProgram));
 
             _fbo = GL.GenFramebuffer();
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, _fbo);
-            _texOne = CreateTexture(PixelInternalFormat.Rgba32f, PixelFormat.Rgba, PixelType.Float, new Vector2(WindowWidth, WindowHeight));
-            _texTwo = CreateTexture(PixelInternalFormat.R32f, PixelFormat.Red, PixelType.Float, new Vector2(WindowWidth, WindowHeight));
 
-            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, _texOne, 0);
-            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment1, _texTwo, 0);
-            Console.WriteLine(GL.GetError());
 
-            Console.WriteLine(GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer));
+            _texOne = CreateTexture(PixelInternalFormat.Rgba32i, PixelFormat.RgbaInteger, PixelType.Int, new Vector2(WindowWidth, WindowHeight));
+            _texTwo = CreateTexture(PixelInternalFormat.Rgba32i, PixelFormat.RgbaInteger, PixelType.Int, new Vector2(WindowWidth, WindowHeight));
+            _texThree = CreateTexture(PixelInternalFormat.Rgba32i, PixelFormat.RgbaInteger, PixelType.Int, new Vector2(WindowWidth, WindowHeight));
+
+            AddTextureToFramebuffer(_fbo, _texOne);
+            AddTextureToFramebuffer(_fbo, _texTwo);
+            AddTextureToFramebuffer(_fbo, _texThree);
+            
+            DrawBuffersEnum[] drawBuffers = new DrawBuffersEnum[3] { DrawBuffersEnum.ColorAttachment0, DrawBuffersEnum.ColorAttachment1, DrawBuffersEnum.ColorAttachment2 };
+            GL.DrawBuffers(drawBuffers.Length, drawBuffers);
+
 
             _wordsTex = InitializeWordsTexture();
             InitializeTextUniform();
+        }
+
+        private void AddTextureToFramebuffer(int fb, int tex)
+        {
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, fb);
+            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, tex, 0);
+            Console.WriteLine(GL.GetError());
+            Console.WriteLine(GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer));
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
         }
 
         private void InitializeTextUniform()
         {
             int[][] text = new int[4][];
             text[0] = new int[] { 4 }; //_ -> a
-            text[1] = new int[] { '6', '6' }; //a_ -> at
+            text[1] = new int[] { 4, 7 }; //a_ -> at
             text[2] = new int[] { 1, 2 }; //__ -> no
             text[3] = new int[] { 4, 3, 2, 1, 0 }; //a_o__ -> amore
 
@@ -101,7 +128,7 @@ namespace TranslageOnGPU
                 var loc = GL.GetUniformLocation(_shaderProgram, "word" + i);
                 if(loc != -1)
                 {
-                    GL.Uniform1(loc, word.Length, word);
+                     GL.Uniform1(loc, word.Length, word);
                 }
             }
             GL.UseProgram(0);
@@ -191,13 +218,20 @@ namespace TranslageOnGPU
             Console.WriteLine(GL.GetError());
 
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, _fbo);
+            Console.WriteLine(GL.GetError());
+            Console.WriteLine("UseProgram");
+            GL.ValidateProgram(_shaderProgram);
+            GL.GetProgram(_shaderProgram, GetProgramParameterName.ValidateStatus, out int state);
+            Console.WriteLine(GL.GetProgramInfoLog(_shaderProgram));
+            GL.GetProgram(_shaderProgram, GetProgramParameterName.LinkStatus, out int myParams);
+            Console.WriteLine(myParams);
             GL.UseProgram(_shaderProgram);
+            Console.WriteLine(GL.GetError());
             GL.BindTexture(TextureTarget.Texture2D, _wordsTex);
             Console.WriteLine(GL.GetError());
 
-            DrawBuffersEnum[] drawBuffers = new DrawBuffersEnum[2] { DrawBuffersEnum.ColorAttachment0, DrawBuffersEnum.ColorAttachment1 };
-            GL.DrawBuffers(drawBuffers.Length, drawBuffers);
-
+            
+            
             GL.Begin(PrimitiveType.Quads);
             GL.Vertex2(-1, -1);
             GL.Vertex2(1, -1);
@@ -210,33 +244,35 @@ namespace TranslageOnGPU
             GL.BindTexture(TextureTarget.Texture2D, 0);
             GL.UseProgram(0);
             Console.WriteLine(GL.GetError());
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            Console.WriteLine(GL.GetError());
 
             SwapBuffers();
 
+            Console.WriteLine(GL.GetError());
 
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            WriteOutput(_texOne);
+            WriteOutput(_texTwo);
+            WriteOutput(_texThree);
+            
+            Thread.Sleep(1000);
+        }
 
-            Rectangle rect = new Rectangle(0, 0, WindowWidth, WindowHeight);
-            float[,] data = new float[rect.Width * 4, rect.Height * 4];
-            float[,] dataTwo = new float[rect.Width, rect.Height];
+        private void WriteOutput(int tex)
+        {
+            int[,] data = new int[WindowWidth * 4, WindowHeight * 4];
 
-            GL.BindTexture(TextureTarget.Texture2D, _texOne);
-            GL.GetTexImage(TextureTarget.Texture2D, 0, PixelFormat.Rgba, PixelType.Float, data);
+            GL.BindTexture(TextureTarget.Texture2D, tex);
+            GL.GetTexImage(TextureTarget.Texture2D, 0, PixelFormat.RgbaInteger, PixelType.Int, data);
             GL.BindTexture(TextureTarget.Texture2D, 0);
 
-            GL.BindTexture(TextureTarget.Texture2D, _texTwo);
-            GL.GetTexImage(TextureTarget.Texture2D, 0, PixelFormat.Red, PixelType.Float, dataTwo);
-            GL.BindTexture(TextureTarget.Texture2D, 0);
+            IntToByte[] intToByte = new IntToByte[4];
+            intToByte[0].Int = data[0, 0];
+            intToByte[1].Int = data[0, 1];
+            intToByte[2].Int = data[0, 2];
+            intToByte[3].Int = data[0, 3];
 
-
-            FloatToByte[] floatToBytes = new FloatToByte[5];
-            floatToBytes[0].Float = data[0, 0];
-            floatToBytes[1].Float = data[0, 1];
-            floatToBytes[2].Float = data[0, 2];
-            floatToBytes[3].Float = data[0, 3];
-            floatToBytes[4].Float = dataTwo[0, 0];
-
-            foreach (var dataThing in floatToBytes)
+            foreach (var dataThing in intToByte)
             {
                 Console.Write((char)dataThing.Byte3);
                 Console.Write((char)dataThing.Byte2);
@@ -245,8 +281,6 @@ namespace TranslageOnGPU
             }
 
             Console.Write("\n");
-
-            Thread.Sleep(1000);
         }
 
         protected override void OnResize(EventArgs args)
