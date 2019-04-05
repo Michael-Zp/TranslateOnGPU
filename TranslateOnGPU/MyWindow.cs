@@ -13,18 +13,9 @@ using OpenTK.Graphics.OpenGL;
 namespace TranslageOnGPU
 {
     [StructLayout(LayoutKind.Explicit)]
-    struct FloatToByte
+    struct ConvertBytes
     {
         [FieldOffset(0)] public float Float;
-        [FieldOffset(0)] public byte Byte0;
-        [FieldOffset(1)] public byte Byte1;
-        [FieldOffset(2)] public byte Byte2;
-        [FieldOffset(3)] public byte Byte3;
-    }
-
-    [StructLayout(LayoutKind.Explicit)]
-    struct IntToByte
-    {
         [FieldOffset(0)] public int Int;
         [FieldOffset(0)] public byte Byte0;
         [FieldOffset(1)] public byte Byte1;
@@ -50,17 +41,21 @@ namespace TranslageOnGPU
         public int[] Offsets = new int[AlphabetLength];
         public int[] CountPerLetter = new int[AlphabetLength];
         public int SortedBy;
+        public string OffsetsUniformName;
+        public string CountUniformName;
 
-        public SortedWordsMetaData(int texId, string texName, List<string> words, int sortedBy) : base(texId, texName)
+        public SortedWordsMetaData(int texId, string texName, List<string> words, int sortedBy, string offsetUniformName, string countUniformName) : base(texId, texName)
         {
+            OffsetsUniformName = offsetUniformName;
+            CountUniformName = countUniformName;
             SortedBy = sortedBy;
-            for(int i = 0; i < AlphabetLength; i++)
+            for (int i = 0; i < AlphabetLength; i++)
             {
                 Offsets[i] = -1;
                 CountPerLetter[i] = 0;
             }
 
-            for(int i = 0; i < words.Count; i++)
+            for (int i = 0; i < words.Count; i++)
             {
                 int indexInAlphabet = words[i][sortedBy] - 'a';
                 if (Offsets[indexInAlphabet] == -1)
@@ -125,9 +120,9 @@ namespace TranslageOnGPU
             _texTwo = CreateTexture(PixelInternalFormat.Rgba32i, PixelFormat.RgbaInteger, PixelType.Int, new Vector2(WindowWidth, WindowHeight));
             _texThree = CreateTexture(PixelInternalFormat.Rgba32i, PixelFormat.RgbaInteger, PixelType.Int, new Vector2(WindowWidth, WindowHeight));
 
-            AddTextureToFramebuffer(_fbo, _texOne);
-            AddTextureToFramebuffer(_fbo, _texTwo);
-            AddTextureToFramebuffer(_fbo, _texThree);
+            AddTextureToFramebuffer(_fbo, _texOne, 0);
+            AddTextureToFramebuffer(_fbo, _texTwo, 1);
+            AddTextureToFramebuffer(_fbo, _texThree, 2);
             Console.WriteLine(GL.GetError());
 
 
@@ -144,10 +139,10 @@ namespace TranslageOnGPU
             InitializeTextUniform();
         }
 
-        private void AddTextureToFramebuffer(int fb, int tex)
+        private void AddTextureToFramebuffer(int fb, int tex, int number)
         {
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, fb);
-            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, tex, 0);
+            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0 + number, tex, 0);
             Console.WriteLine(GL.GetError());
             Console.WriteLine(GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer));
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
@@ -189,7 +184,7 @@ namespace TranslageOnGPU
         {
 
             List<string> allWords = new List<string>();
-            List<string>[] sortedWords = new List<string>[6]
+            List<string>[] wordsByLength = new List<string>[6]
             {
                 new List<string>(),
                 new List<string>(),
@@ -227,33 +222,49 @@ namespace TranslageOnGPU
                     }
 
                     allWords.Add(line);
-                    for (int i = 0; i < sortedWords.Length && line.Length > i; i++)
-                    {
-                        sortedWords[i].Add(line);
-                    }
+                    wordsByLength[line.Length - 1].Add(line);
                 }
-            }
-
-            for (int i = 0; i < sortedWords.Length; i++)
-            {
-                sortedWords[i] = sortedWords[i].OrderBy(w => w[i]).ToList();
             }
 
             _wordsTextures.Add(new WordsTextureMetaData(WordListToTexture(allWords), "allWords"));
 
-            for (int i = 0; i < sortedWords.Length; i++)
+            for (int i = 0; i < wordsByLength.Length; i++)
             {
-                _wordsTextures.Add(new SortedWordsMetaData(WordListToTexture(sortedWords[i]), "wordsSortedByLetter" + i, sortedWords[i], i));
+                for(int k = i; k < wordsByLength.Length; k++)
+                {
+
+                    List<string> sortedList = wordsByLength[k].OrderBy(w => w[i]).Distinct().ToList();
+
+
+                    if (sortedList.Contains("babied"))
+                    {
+                        Console.WriteLine(i + "; " + k + "; " + sortedList.IndexOf("babied"));
+                    }
+
+                    string texName = "wordsSortedByLetter" + i + "_Length" + (k + 1);
+                    string offsetsUniformName = "offsetsSortedByLetter" + i + "_Length" + (k + 1);
+                    string countUniformName = "numberOfWordsSortedByLetter" + i + "_Length" + (k + 1);
+                    _wordsTextures.Add(new SortedWordsMetaData(WordListToTexture(wordsByLength[i]), texName, sortedList, i, offsetsUniformName, countUniformName));
+
+                }
+
+                {
+                    string texName = "words_Length" + (i + 1);
+                    string offsetsUniformName = "offsetOfWordsLength" + (i + 1);
+                    string countUniformName = "numberOfWordsLength" + (i + 1);
+                    List<string> sortedList = wordsByLength[i].OrderBy(w => w[i]).Distinct().ToList();
+                    _wordsTextures.Add(new SortedWordsMetaData(WordListToTexture(wordsByLength[i]), texName, sortedList, i, offsetsUniformName, countUniformName));
+                }
             }
 
             GL.UseProgram(_shaderProgram);
             int index = 0;
-            foreach(var tex in _wordsTextures)
+            foreach (var tex in _wordsTextures)
             {
                 if (tex is SortedWordsMetaData sortedTex)
                 {
-                    var locOffsets = GL.GetUniformLocation(_shaderProgram, "offsetsInSortedByLetter" + index);
-                    var locCount = GL.GetUniformLocation(_shaderProgram, "numberOfWordsSortedByLetter" + index);
+                    var locOffsets = GL.GetUniformLocation(_shaderProgram, sortedTex.OffsetsUniformName);
+                    var locCount = GL.GetUniformLocation(_shaderProgram, sortedTex.CountUniformName);
                     GL.Uniform1(locOffsets, SortedWordsMetaData.AlphabetLength, sortedTex.Offsets);
                     GL.Uniform1(locCount, SortedWordsMetaData.AlphabetLength, sortedTex.CountPerLetter);
                     index++;
@@ -265,7 +276,7 @@ namespace TranslageOnGPU
 
         private int WordListToTexture(List<string> words)
         {
-            FloatToByte[] floatToByte = new FloatToByte[words.Count * 6];
+            ConvertBytes[] floatToByte = new ConvertBytes[words.Count * 6];
 
             for (int i = 0; i < words.Count; i++)
             {
@@ -292,6 +303,7 @@ namespace TranslageOnGPU
                     wordsArray[col + k, row] = floatToByte[i * 6 + k].Float;
                 }
             }
+
 
             return CreateTexture(PixelInternalFormat.R32f, PixelFormat.Red, PixelType.Float, new Vector2(3072f, 3072f), wordsArray);
         }
@@ -357,9 +369,9 @@ namespace TranslageOnGPU
 
             Console.WriteLine(GL.GetError());
 
-            WriteOutput(_texOne);
-            WriteOutput(_texTwo);
-            WriteOutput(_texThree);
+            WriteOutput(_texOne, "One");
+            WriteOutput(_texTwo, "Two");
+            WriteOutput(_texThree, "Three");
 
             Thread.Sleep(1000);
         }
@@ -375,7 +387,7 @@ namespace TranslageOnGPU
 
             GL.UseProgram(_shaderProgram);
             Console.WriteLine(GL.GetError());
-            
+
 
             for (int i = 0; i < _wordsTextures.Count; i++)
             {
@@ -407,7 +419,7 @@ namespace TranslageOnGPU
             Console.WriteLine(GL.GetError());
         }
 
-        private void WriteOutput(int tex)
+        private void WriteOutput(int tex, string texName)
         {
             int[,] data = new int[WindowWidth * 4, WindowHeight * 4];
 
@@ -415,12 +427,14 @@ namespace TranslageOnGPU
             GL.GetTexImage(TextureTarget.Texture2D, 0, PixelFormat.RgbaInteger, PixelType.Int, data);
             GL.BindTexture(TextureTarget.Texture2D, 0);
 
-            IntToByte[] intToByte = new IntToByte[4];
+            ConvertBytes[] intToByte = new ConvertBytes[4];
             intToByte[0].Int = data[0, 0];
             intToByte[1].Int = data[0, 1];
             intToByte[2].Int = data[0, 2];
             intToByte[3].Int = data[0, 3];
 
+            Console.Write("Output of tex " + texName + " :");
+            
             foreach (var dataThing in intToByte)
             {
                 Console.Write((char)dataThing.Byte3);
