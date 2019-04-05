@@ -1,11 +1,49 @@
 ﻿#version 330 core 
 #extension GL_EXT_gpu_shader4 : enable
 
+int[16][6] text;
 uniform int[6] word0;
 uniform int[6] word1;
 uniform int[6] word2;
 uniform int[6] word3;
-uniform sampler2D words;
+uniform int[6] word4;
+uniform int[6] word5;
+uniform int[6] word6;
+uniform int[6] word7;
+uniform int[6] word8;
+uniform int[6] word9;
+uniform int[6] word10;
+uniform int[6] word11;
+uniform int[6] word12;
+uniform int[6] word13;
+uniform int[6] word14;
+uniform int[6] word15;
+
+int[6][26] offsetSortedByLetter;
+uniform int[26] offsetsInSortedByLetter0;
+uniform int[26] offsetsInSortedByLetter1;
+uniform int[26] offsetsInSortedByLetter2;
+uniform int[26] offsetsInSortedByLetter3;
+uniform int[26] offsetsInSortedByLetter4;
+uniform int[26] offsetsInSortedByLetter5;
+
+int[6][26] numberOfWordsSortedBy;
+uniform int[26] numberOfWordsSortedByLetter0;
+uniform int[26] numberOfWordsSortedByLetter1;
+uniform int[26] numberOfWordsSortedByLetter2;
+uniform int[26] numberOfWordsSortedByLetter3;
+uniform int[26] numberOfWordsSortedByLetter4;
+uniform int[26] numberOfWordsSortedByLetter5;
+
+
+uniform sampler2D allWords;
+
+uniform sampler2D wordsSortedByLetter0;
+uniform sampler2D wordsSortedByLetter1;
+uniform sampler2D wordsSortedByLetter2;
+uniform sampler2D wordsSortedByLetter3;
+uniform sampler2D wordsSortedByLetter4;
+uniform sampler2D wordsSortedByLetter5;
 
 layout(location = 0) out ivec4 FragColor;
 layout(location = 1) out ivec4 secondOut;
@@ -14,6 +52,26 @@ layout(location = 2) out ivec4 thirdOut;
 int isInCoord(float x, float y)
 {
 	return int(step(x, gl_FragCoord.x) * step(gl_FragCoord.x, x + 1) * step(y, gl_FragCoord.y) * step(gl_FragCoord.y, y + 1 ));
+}
+
+int[6] getWord(sampler2D tex, int index)
+{
+	int word[6];
+
+	int col = (index * 6) % 3072;
+	int row = int(floor((index * 6) / 3072.0));
+
+	for(int i = 0; i < 6; i++)
+	{
+		word[i] = floatBitsToInt(texelFetch(tex, ivec2(row, col + i), 0).r);
+	}
+
+	return word;
+}
+
+int[6] getWordFromSorted(sampler2D tex, int sortedByLetterIndex, int letter, int index)
+{
+	return getWord(tex, offsetSortedByLetter[sortedByLetterIndex][letter - 'a'] + index);
 }
 
 int[2] wordToInt(int[6] word)
@@ -55,11 +113,37 @@ float[2] intsToTextInFloats(int[6] word)
 
 void main() 
 {
-	int[4][6] text;
 	text[0] = word0;
 	text[1] = word1;
 	text[2] = word2;
 	text[3] = word3;
+	text[4] = word4;
+	text[5] = word5;
+	text[6] = word6;
+	text[7] = word7;
+	text[8] = word8;
+	text[9] = word9;
+	text[10] = word10;
+	text[11] = word11;
+	text[12] = word12;
+	text[13] = word13;
+	text[14] = word14;
+	text[15] = word15;
+	
+	offsetSortedByLetter[0] = offsetsInSortedByLetter0;
+	offsetSortedByLetter[1] = offsetsInSortedByLetter1;
+	offsetSortedByLetter[2] = offsetsInSortedByLetter2;
+	offsetSortedByLetter[3] = offsetsInSortedByLetter3;
+	offsetSortedByLetter[4] = offsetsInSortedByLetter4;
+	offsetSortedByLetter[5] = offsetsInSortedByLetter5;
+
+	numberOfWordsSortedBy[0] = numberOfWordsSortedByLetter0;
+	numberOfWordsSortedBy[1] = numberOfWordsSortedByLetter1;
+	numberOfWordsSortedBy[2] = numberOfWordsSortedByLetter2;
+	numberOfWordsSortedBy[3] = numberOfWordsSortedByLetter3;
+	numberOfWordsSortedBy[4] = numberOfWordsSortedByLetter4;
+	numberOfWordsSortedBy[5] = numberOfWordsSortedByLetter5;
+
 
 
 	FragColor = ivec4(0);
@@ -69,16 +153,8 @@ void main()
 	int isIn00 = isInCoord(0, 0);
 
 	//Is in coord
-	int currentWord = 0;
-	int word[6];
-	for(int i = 0; i < 6; i++)
-	{
-		int col = (currentWord * 6) % 3072;
-		int row = int(floor((currentWord * 6) / 2048.0));
-		word[i] = floatBitsToInt(texelFetch(words, ivec2(col, row + i), 0).r);
-	}
     
-    int[2] myOutput = wordToInt(word);
+    int[2] myOutput = wordToInt(getWordFromSorted(wordsSortedByLetter5, 5, 'b', 0));
 	
 	FragColor += ivec4(0x68616C6C,0x6F5F7765,myOutput[0],myOutput[1]) * isIn00;
 
