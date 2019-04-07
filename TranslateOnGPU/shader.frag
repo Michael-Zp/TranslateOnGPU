@@ -1,5 +1,7 @@
-﻿#version 330 core 
+﻿#version 430 core 
 #extension GL_EXT_gpu_shader4 : enable
+
+const int char_a = 97;
 
 int[16][6] text;
 uniform int[6] word0;
@@ -185,7 +187,7 @@ int[6] getWord(sampler2D tex, int index)
 
 int[6] getWordFromSorted(sampler2D tex, int sortedByLetterIndex, int letter, int lengthOfWord, int index)
 {
-	return getWord(tex, offsetSortedByLetter[lengthOfWord - 1][sortedByLetterIndex][letter - 'a'] + index);
+	return getWord(tex, offsetSortedByLetter[lengthOfWord - 1][sortedByLetterIndex][letter - char_a] + index);
 }
 
 int[2] wordToInt(int[6] word)
@@ -345,9 +347,19 @@ void main()
 
 	//Is in coord
     
-    int[2] myOutput = wordToInt(getWordFromSorted(wordsSortedByLetter5_Length6, 5, 'b', 6, 0));
-	
-	FragColor += ivec4(0x68616C6C,0x6F5F7765, myOutput[0],myOutput[1]) * isIn00;
+    int[2] myOutput = wordToInt(getWordFromSorted(wordsSortedByLetter5_Length6, 5, char_a + 1, 6, 0));
+
+	int[6] testWord;
+	testWord[0] = 0x61;
+	testWord[1] = 0x62;
+	testWord[2] = 0x63;
+	testWord[3] = 0;
+	testWord[4] = 0;
+	testWord[5] = 0;
+	myOutput = wordToInt(testWord);
+
+
+	FragColor += ivec4(0x68616C6C, 0x6F5F7765, myOutput[0], myOutput[1]) * isIn00;
 
 	int[2] myOutput20 = numbersToText(text[0]);
 	int[2] myOutput21 = numbersToText(text[1]);
@@ -355,7 +367,8 @@ void main()
 	int[2] myOutput23 = numbersToText(text[3]);
 
 	int[6] offsetNumbers;
-	int offsetNumber = offsetSortedByLetter[5][5][1]; //888288;
+	int offsetNumber = offsetSortedByLetter[5][5][1];
+	//offsetNumber = 888288;
 	
 	offsetNumbers[3] = offsetNumber / 1      % 10;
 	offsetNumbers[2] = offsetNumber / 10     % 10;
@@ -366,7 +379,7 @@ void main()
 
 	int myOut = numbersToText(offsetNumbers)[0];
 
-	secondOut += ivec4(myOutput20[0], myOutput20[1], myOutput21[0], myOutput21[1]) * isIn00;
+	secondOut += ivec4(myOutput20[0], myOutput20[1], 0x62636465, 0x30313233) * isIn00;
 	thirdOut += ivec4(myOutput22[0], myOutput22[1], myOutput23[0], myOut) * isIn00;
 	
 

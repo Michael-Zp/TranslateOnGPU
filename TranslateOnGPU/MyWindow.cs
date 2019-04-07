@@ -234,17 +234,12 @@ namespace TranslageOnGPU
                 {
 
                     List<string> sortedList = wordsByLength[k].OrderBy(w => w[i]).Distinct().ToList();
-
-
-                    if (sortedList.Contains("babied"))
-                    {
-                        Console.WriteLine(i + "; " + k + "; " + sortedList.IndexOf("babied"));
-                    }
-
+                    
+                    
                     string texName = "wordsSortedByLetter" + i + "_Length" + (k + 1);
                     string offsetsUniformName = "offsetsSortedByLetter" + i + "_Length" + (k + 1);
                     string countUniformName = "numberOfWordsSortedByLetter" + i + "_Length" + (k + 1);
-                    _wordsTextures.Add(new SortedWordsMetaData(WordListToTexture(wordsByLength[i]), texName, sortedList, i, offsetsUniformName, countUniformName));
+                    _wordsTextures.Add(new SortedWordsMetaData(WordListToTexture(sortedList), texName, sortedList, i, offsetsUniformName, countUniformName));
 
                 }
 
@@ -253,7 +248,7 @@ namespace TranslageOnGPU
                     string offsetsUniformName = "offsetOfWordsLength" + (i + 1);
                     string countUniformName = "numberOfWordsLength" + (i + 1);
                     List<string> sortedList = wordsByLength[i].OrderBy(w => w[i]).Distinct().ToList();
-                    _wordsTextures.Add(new SortedWordsMetaData(WordListToTexture(wordsByLength[i]), texName, sortedList, i, offsetsUniformName, countUniformName));
+                    _wordsTextures.Add(new SortedWordsMetaData(WordListToTexture(wordsByLength[i]), texName, wordsByLength[i], i, offsetsUniformName, countUniformName));
                 }
             }
 
